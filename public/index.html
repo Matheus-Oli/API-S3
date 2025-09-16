@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docs — API S3 (Uploads & Downloads)</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="description" content="Documentação do sistema de upload/download de imagens via Amazon S3 (URLs pré-assinadas, HEAD, DELETE e streaming).">
+</head>
+<body>
+  <header class="site-header reveal">
+    <div class="container">
+      <h1>API S3 — Upload & Download</h1>
+      <p class="subtitle">Sistema para armazenamento privado de imagens no S3 com entrega por URLs temporárias.</p>
+    </div>
+  </header>
+
+  <nav class="toc container reveal" aria-label="Seções">
+    <a href="#resumo" class="toc-link">Resumo do sistema</a>
+    <a href="#base" class="toc-link">Base & Status</a>
+    <a href="#capabilidades" class="toc-link">Capabilidades</a>
+    <a href="#endpoints" class="toc-link">Endpoints</a>
+    <a href="#erros" class="toc-link">Códigos & Erros</a>
+    <a href="#politicas" class="toc-link">Políticas & Limites</a>
+  </nav>
+
+  <main class="container">
+    <!-- RESUMO -->
+    <section id="resumo" class="reveal">
+      <h2>Resumo do sistema</h2>
+      <p>Esta API fornece operações para:</p>
+      <ul class="bullets">
+        <li><strong>Gerar URL pré-assinada de upload</strong> (PUT direto no S3).</li>
+        <li><strong>Gerar URL pré-assinada de download</strong> (GET temporário).</li>
+        <li><strong>Verificar existência</strong> de um objeto (HEAD, sem baixar).</li>
+        <li><strong>Streamar</strong> um objeto diretamente (debug/uso interno).</li>
+        <li><strong>Excluir</strong> um objeto.</li>
+      </ul>
+      <p>Todos os objetos são privados no S3. O acesso ocorre por URL temporária (assinada) ou por rotas internas desta API.</p>
+    </section>
+
+    <!-- BASE & STATUS -->
+    <section id="base" class="reveal">
+      <h2>Base & Status</h2>
+      <div class="card-grid">
+        <div class="endpoint">
+          <h3>Base URL</h3>
+          <div class="codeblock">
+            <button class="copy-btn" data-copy="http://localhost:3001">Copiar</button>
+            <code>http://localhost:3001</code>
+          </div>
+          <p>Substitua pelo host de produção quando necessário.</p>
+        </div>
+
+        <div class="endpoint">
+          <h3>Status</h3>
+          <p><span class="method get">GET</span> <code>/health</code></p>
+          <div class="codeblock">
+            <button class="copy-btn" data-copy="http://localhost:3001/health">Copiar</button>
+            <code>http://localhost:3001/health</code>
+          </div>
+          <p>Retorna <code>ok</code> quando a API está operacional.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CAPABILIDADES -->
+    <section id="capabilidades" class="reveal">
+      <h2>Capabilidades do sistema</h2>
+      <ul class="bullets">
+        <li>Whitelist de MIME para imagens: <code>image/png</code>, <code>image/jpeg</code>, <code>image/webp</code>, <code>image/gif</code>.</li>
+        <li>Keys geradas automaticamente no padrão: <code>uploads/YYYY-MM-DD/&lt;hash&gt;.ext</code>.</li>
+        <li>URLs de download com expiração (default 5 minutos).</li>
+        <li>Operações de verificação (HEAD) e remoção (DELETE) disponíveis por endpoint.</li>
+        <li>Streaming direto do S3 para debug local.</li>
+      </ul>
+    </section>
+
+    <!-- ENDPOINTS -->
+    <section id="endpoints" class="reveal">
+      <h2>Endpoints</h2>
+
+      <!-- Upload URL -->
+      <article class="endpoint reveal">
+        <h3>Gerar URL de Upload</h3>
+        <p><span class="method post">POST</span> <code>/api/upload-url</code></p>
+
+        <h4>Request (JSON)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy='{"contentType":"image/png","ext":"png"}'>Copiar</button>
+          <pre><code>{
+  "contentType": "image/png",
+  "ext": "png"
+}</code></pre>
+        </div>
+
+        <h4>URL (para chamar)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy="http://localhost:3001/api/upload-url">Copiar</button>
+          <code>http://localhost:3001/api/upload-url</code>
+        </div>
+
+        <h4>Response (200)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy='{"url":"https://SEU_BUCKET.s3.us-east-1.amazonaws.com/uploads/2025-09-16/abc123.png?...","key":"uploads/2025-09-16/abc123.png"}'>Copiar</button>
+          <pre><code>{
+  "url": "https://SEU_BUCKET.s3.us-east-1.amazonaws.com/uploads/2025-09-16/abc123.png?...",
+  "key": "uploads/2025-09-16/abc123.png"
+}</code></pre>
+        </div>
+
+        <h4>cURL (PUT para subir arquivo)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy='curl -X PUT "<cole_a_url_de_upload>" --upload-file "./minha-imagem.png" -H "Content-Type: image/png"'>Copiar</button>
+          <pre><code>curl -X PUT "&lt;cole_a_url_de_upload&gt;" \
+  --upload-file "./minha-imagem.png" \
+  -H "Content-Type: image/png"</code></pre>
+        </div>
+      </article>
+
+      <!-- Download URL -->
+      <article class="endpoint reveal">
+        <h3>Gerar URL de Download</h3>
+        <p><span class="method get">GET</span> <code>/api/download-url?key=&lt;KEY&gt;</code></p>
+
+        <h4>URL (para chamar)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy="http://localhost:3001/api/download-url?key=uploads/2025-09-16/abc123.png">Copiar</button>
+          <code>http://localhost:3001/api/download-url?key=uploads/2025-09-16/abc123.png</code>
+        </div>
+
+        <h4>Response (200)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy='{"url":"https://SEU_BUCKET.s3.us-east-1.amazonaws.com/uploads/2025-09-16/abc123.png?X-Amz-Expires=300&..."}'>Copiar</button>
+          <pre><code>{
+  "url": "https://SEU_BUCKET.s3.us-east-1.amazonaws.com/uploads/2025-09-16/abc123.png?X-Amz-Expires=300&..."
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- HEAD -->
+      <article class="endpoint reveal">
+        <h3>HEAD (verificar existência, MIME e tamanho)</h3>
+        <p><span class="method get">GET</span> <code>/api/head?key=&lt;KEY&gt;</code></p>
+
+        <h4>URL (para chamar)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy="http://localhost:3001/api/head?key=uploads/2025-09-16/abc123.png">Copiar</button>
+          <code>http://localhost:3001/api/head?key=uploads/2025-09-16/abc123.png</code>
+        </div>
+
+        <h4>Response (200)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy='{"exists":true,"contentType":"image/png","contentLength":12345,"lastModified":"2025-09-16T17:03:12.000Z"}'>Copiar</button>
+          <pre><code>{
+  "exists": true,
+  "contentType": "image/png",
+  "contentLength": 12345,
+  "lastModified": "2025-09-16T17:03:12.000Z"
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- Streaming -->
+      <article class="endpoint reveal">
+        <h3>Streaming do Objeto (debug)</h3>
+        <p><span class="method get">GET</span> <code>/api/object?key=&lt;KEY&gt;</code></p>
+
+        <h4>URL (para chamar)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy="http://localhost:3001/api/object?key=uploads/2025-09-16/abc123.png">Copiar</button>
+          <code>http://localhost:3001/api/object?key=uploads/2025-09-16/abc123.png</code>
+        </div>
+
+        <p>Retorna o conteúdo binário diretamente (útil para verificações rápidas no navegador/Postman).</p>
+      </article>
+
+      <!-- Delete -->
+      <article class="endpoint reveal">
+        <h3>Excluir Objeto</h3>
+        <p><span class="method del">DELETE</span> <code>/api/object?key=&lt;KEY&gt;</code></p>
+
+        <h4>URL (para chamar)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy="http://localhost:3001/api/object?key=uploads/2025-09-16/abc123.png">Copiar</button>
+          <code>http://localhost:3001/api/object?key=uploads/2025-09-16/abc123.png</code>
+        </div>
+
+        <h4>Response (200)</h4>
+        <div class="codeblock">
+          <button class="copy-btn" data-copy='{"ok":true,"key":"uploads/2025-09-16/abc123.png"}'>Copiar</button>
+          <pre><code>{ "ok": true, "key": "uploads/2025-09-16/abc123.png" }</code></pre>
+        </div>
+      </article>
+    </section>
+
+    <!-- ERROS -->
+    <section id="erros" class="reveal">
+      <h2>Códigos & Erros</h2>
+      <ul class="bullets">
+        <li><strong>200</strong> — sucesso.</li>
+        <li><strong>400</strong> — parâmetro ausente (ex.: <code>key</code> obrigatório).</li>
+        <li><strong>404</strong> — objeto não encontrado (HEAD/OBJECT) ou rota inexistente.</li>
+        <li><strong>415</strong> — tipo de arquivo não permitido (MIME fora da whitelist).</li>
+        <li><strong>500</strong> — erro interno (S3/assinatura/env).</li>
+      </ul>
+    </section>
+
+    <!-- POLÍTICAS/LIMITES -->
+    <section id="politicas" class="reveal">
+      <h2>Políticas & Limites</h2>
+      <ul class="bullets">
+        <li>Objetos ficam privados no S3; o acesso é concedido por URL assinada (GET) ou via rotas internas.</li>
+        <li>Whitelist de MIME para imagens (png, jpeg, webp, gif).</li>
+        <li>Expiração padrão de URLs assinadas de download: <strong>5 minutos</strong>.</li>
+        <li>Formato da key gerada automaticamente: <code>uploads/YYYY-MM-DD/&lt;hash&gt;.ext</code>.</li>
+        <li>Recomenda-se registrar o <code>key</code> da imagem nos metadados do seu sistema/formulário.</li>
+      </ul>
+    </section>
+
+    <footer class="site-footer reveal">
+      <p>© <span id="year"></span> API S3 — Sistema de Upload/Download</p>
+    </footer>
+  </main>
+
+  <button class="back-to-top" id="backToTop" aria-label="Voltar ao topo">↑</button>
+
+  <script>
+    // Ano rodapé
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // ===== Scroll Reveal =====
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!prefersReduced && 'IntersectionObserver' in window) {
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) entry.target.classList.add('is-visible');
+        });
+      }, { threshold: 0.08, rootMargin: "0px 0px -10% 0px" });
+
+      document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+    } else {
+      document.querySelectorAll('.reveal').forEach(el => el.classList.add('is-visible'));
+    }
+
+    // ===== TOC: animação clique + scroll suave + ativo =====
+    const links = Array.from(document.querySelectorAll('.toc .toc-link'));
+    const sections = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+
+    links.forEach(link => {
+      link.addEventListener('click', (e) => {
+        const targetId = link.getAttribute('href');
+        const target = document.querySelector(targetId);
+        if (!target) return;
+        e.preventDefault();
+
+        // animação "pulse"
+        link.classList.remove('clicked');
+        void link.offsetWidth;
+        link.classList.add('clicked');
+
+        // scroll suave + foco acessível
+        target.scrollIntoView({ behavior:'smooth', block:'start' });
+        history.pushState(null, '', targetId);
+        setTimeout(() => {
+          const h = target.querySelector('h2,h3,h1');
+          if (h) h.setAttribute('tabindex','-1'), h.focus({ preventScroll: true });
+        }, 400);
+      });
+    });
+
+    const spy = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const idx = sections.indexOf(entry.target);
+        if (idx >= 0) {
+          const link = links[idx];
+          if (entry.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+          }
+        }
+      });
+    }, { threshold: 0.5 });
+    sections.forEach(sec => spy.observe(sec));
+
+    // ===== Botão copiar =====
+    function bindCopyButtons() {
+      document.querySelectorAll(".copy-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const text = btn.getAttribute("data-copy") || "";
+          navigator.clipboard.writeText(text).then(() => {
+            const prev = btn.textContent;
+            btn.textContent = "Copiado!";
+            btn.classList.add("copied");
+            setTimeout(() => { btn.textContent = prev; btn.classList.remove("copied"); }, 1500);
+          });
+        });
+      });
+    }
+    bindCopyButtons();
+
+    // ===== Voltar ao topo =====
+    const backToTop = document.getElementById('backToTop');
+    window.addEventListener('scroll', () => {
+      backToTop.classList.toggle('show', window.scrollY > 600);
+    });
+    backToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  </script>
+</body>
+</html>

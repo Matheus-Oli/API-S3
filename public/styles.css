@@ -1,0 +1,178 @@
+:root{
+  --bg:#0f1115;
+  --card:#151923;
+  --txt:#e7ecf7;
+  --muted:#9aa6bd;
+  --brand:#3abefe;
+  --accent:#8a2be2;
+  --ok:#22c55e;
+  --warn:#f59e0b;
+  --err:#ef4444;
+  --radius:14px;
+  --shadow:0 10px 30px rgba(0,0,0,.25);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+  background:linear-gradient(180deg,#0b0d12,#0f1115 25%);
+  color:var(--txt);
+  line-height:1.6;
+}
+
+.container{max-width:980px;margin:0 auto;padding:0 20px}
+
+.site-header{
+  padding:56px 0 28px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  background:
+    radial-gradient(600px 200px at 20% -10%, rgba(58,190,254,.15), transparent 60%),
+    radial-gradient(400px 160px at 80% -20%, rgba(138,43,226,.15), transparent 60%);
+}
+.site-header h1{
+  margin:0 0 8px;
+  font-weight:800;
+  letter-spacing:.2px;
+}
+.subtitle{color:var(--muted); margin:0}
+
+.toc{
+  display:flex; flex-wrap:wrap; gap:8px;
+  padding:16px 0 24px;
+}
+.toc .toc-link{
+  text-decoration:none;
+  color:var(--txt);
+  border:1px solid rgba(255,255,255,.08);
+  padding:8px 12px;
+  border-radius:999px;
+  font-size:14px;
+  transition:transform .16s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+  position:relative;
+}
+.toc .toc-link:hover{border-color:rgba(58,190,254,.6); color:var(--brand)}
+.toc .toc-link.active{
+  border-color:rgba(58,190,254,.9);
+  box-shadow:0 0 0 3px rgba(58,190,254,.15);
+}
+.toc .toc-link.clicked{
+  transform:scale(0.97);
+  box-shadow:0 0 0 6px rgba(58,190,254,.12);
+}
+
+/* Scroll Reveal */
+.reveal{
+  opacity:0;
+  transform:translateY(22px);
+  transition:opacity .7s ease, transform .7s cubic-bezier(.21,.98,.6,.99);
+  will-change:opacity, transform;
+}
+.reveal.is-visible{
+  opacity:1;
+  transform:none;
+}
+
+main section{margin:28px 0}
+h2{
+  margin:0 0 12px;
+  font-size:26px;
+  letter-spacing:.2px;
+}
+h3{margin:18px 0 8px}
+h4{margin:12px 0 6px; color:var(--muted); font-weight:600}
+
+.bullets{margin:8px 0 0 18px}
+.bullets li{margin:6px 0}
+
+.codeblock{
+  position:relative;
+  background:var(--card);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:auto;
+  padding:14px 16px;
+  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size:13px;
+  line-height:1.5;
+  color:#dbe7ff;
+}
+.copy-btn{
+  position:absolute;
+  top:6px; right:6px;
+  font-size:12px;
+  padding:4px 8px;
+  border:none;
+  border-radius:6px;
+  background:var(--brand);
+  color:#0b0d12;
+  cursor:pointer;
+  opacity:.9;
+  transition:opacity .2s ease, transform .08s ease;
+}
+.copy-btn:hover{opacity:1}
+.copy-btn:active{transform:scale(.98)}
+.copy-btn.copied{
+  background:var(--ok);
+  color:#072;
+}
+
+.card-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:16px;
+}
+@media (min-width: 760px){
+  .card-grid{ grid-template-columns:1fr 1fr; }
+}
+
+.endpoint{
+  background:var(--card);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:16px;
+  margin:14px 0 22px;
+}
+
+.method{
+  display:inline-block;
+  font-size:12px;
+  padding:2px 8px;
+  border-radius:999px;
+  margin-right:6px;
+  border:1px solid rgba(255,255,255,.14);
+  color:#fff;
+}
+.method.get{background:#1f2937}
+.method.post{background:#0b5}
+.method.del{background:#c62828}
+
+.site-footer{
+  margin:40px 0 80px;
+  color:var(--muted);
+  text-align:center;
+}
+
+/* Back to top */
+.back-to-top{
+  position:fixed;
+  right:16px;
+  bottom:16px;
+  width:44px;height:44px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+  background:linear-gradient(180deg, rgba(58,190,254,.2), rgba(138,43,226,.2));
+  color:#fff;
+  font-size:18px;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0; pointer-events:none;
+  transform:translateY(12px);
+  transition:opacity .25s ease, transform .25s ease;
+}
+.back-to-top.show{
+  opacity:1; pointer-events:auto; transform:none;
+}
