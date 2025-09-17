@@ -12,25 +12,37 @@ import {
   DeleteObjectCommand
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 app.use(morgan("dev"));
 app.use(express.json({ limit: "1mb" }));
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN?.split(",") ?? "*",
-    methods: ["GET", "POST", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-  })
-);
+
+// --- CORS (com lista de origins + preflight) ---
+const allowed = (process.env.CORS_ORIGIN || "*")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
+
+const corsOpts = {
+  origin: (origin, cb) => {
+    if (!origin || allowed.includes("*")) return cb(null, true); // Postman/health etc
+    return cb(null, allowed.includes(origin));
+  },
+  methods: ["GET", "POST", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+app.use(cors(corsOpts));
+app.options(/.*/, cors(corsOpts));
+// (debug) logar o Origin recebido
+app.use((req, _res, next) => { console.log("Origin:", req.headers.origin); next(); });
 
 // serve a documentação (HTML/CSS) em /
-import path from "path";
-import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, "public")));
-
 
 // --- S3 client ---
 const s3 = new S3Client({
@@ -51,18 +63,27 @@ app.post("/api/upload-url", async (req, res) => {
     const { contentType, ext } = req.body || {};
     if (!contentType) return res.status(400).json({ error: "contentType obrigatório" });
 
-    const allowed = ["image/png", "image/jpeg", "image/webp", "image/gif"];
-    if (!allowed.includes(contentType)) return res.status(415).json({ error: "MIME não permitido" });
+    const allowedMime = [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/gif",
+      "image/svg+xml"
+    ];
+    if (!allowedMime.includes(contentType)) {
+      return res.status(415).json({ error: "MIME não permitido" });
+    }
 
     const key = `uploads/${new Date().toISOString().slice(0, 10)}/${crypto
       .randomBytes(16)
-      .toString("hex")}${ext ? "." + ext.replace(".", "") : ""}`;
+      .toString("hex")}${ext ? "." + String(ext).replace(".", "") : ""}`;
 
     const cmd = new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
-      ContentType: contentType,
-      ACL: "public-read"
+      ContentType: contentType
+      // NÃO usar ACL pública; mantém privado (evita AccessDenied em buckets com Block Public Access)
+      // ACL: "public-read"
     });
 
     const url = await getSignedUrl(s3, cmd, { expiresIn: 60 * 5 });
@@ -130,15 +151,11 @@ app.get("/api/object", async (req, res) => {
     const key = String(req.query.key || "");
     if (!key) return res.status(400).json({ error: "key obrigatório" });
 
-    // Usa GetObject e faz pipe do stream pra resposta HTTP
     const out = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
     res.setHeader("Content-Type", out.ContentType || "application/octet-stream");
-    // Opcional: forçar download em vez de inline
-    // res.setHeader("Content-Disposition", `attachment; filename="${key.split("/").pop()}"`);
     out.Body.pipe(res);
   } catch (e) {
     console.error(e);
-    // 404 se não achar; 403/500 para outros
     res.status(404).json({ error: "não encontrado" });
   }
 });
