@@ -61,8 +61,8 @@ app.post("/api/upload-url", async (req, res) => {
     const cmd = new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
-      ContentType: contentType
-      // ServerSideEncryption: "AES256"
+      ContentType: contentType,
+      ACL: "public-read"
     });
 
     const url = await getSignedUrl(s3, cmd, { expiresIn: 60 * 5 });
