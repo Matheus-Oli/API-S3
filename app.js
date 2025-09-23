@@ -34,7 +34,17 @@ const corsOpts = {
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 
-app.use(cors(corsOpts));
+app.use(cors({
+  origin: (origin, callback) => {
+    const allowed = process.env.CORS_ORIGIN.split(",");
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  }
+}));
+
 app.options(/.*/, cors(corsOpts));
 app.use((req, _res, next) => { console.log("Origin:", req.headers.origin); next(); });
 
